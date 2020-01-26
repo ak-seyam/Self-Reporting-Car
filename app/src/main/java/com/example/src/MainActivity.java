@@ -54,6 +54,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private SensorManager accelerationSensorManager;
     private Sensor accelerationSensor;
     private float[] accelerationValues;
+    private boolean acsLong,acsLat;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,6 +103,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         double currentSpeed = locationController.getSpeed();
         latitude = locationController.getLatitude();
         longitude = locationController.getLongitude();
+
         System.out.println("current speed "+currentSpeed);
         if (currentSpeed > speedLimit && !sentViolationOneTime){
             sendViolationData();
@@ -109,18 +111,20 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             sentViolationOneTime = true;
             System.out.println("NOTE: we did it once, don't send two exact same violations");
             fetchSpeedData();
+            acsLong = longitude < endingLongitude;
+            acsLat = latitude < endingLatitude;
         }
-        if(hasExceeded(latitude,location,endingLatitude,endingLongitude)){
+        if(hasExceeded(latitude,longitude,endingLatitude,endingLongitude)){
             sentViolationOneTime = false;
             fetchSpeedData();
         }
     }
 
     private boolean hasExceeded(double latitude,
-                                Location location,
+                                double longitude,
                                 double endingLatitude,
                                 double endingLongitude) {
-        return false;
+        return (acsLong == longitude > endingLongitude) || (acsLat == latitude > endingLatitude);
     }
 
     @Override
