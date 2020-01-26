@@ -50,7 +50,7 @@ import retrofit2.Retrofit;
 public class MainActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
     private static final int CAR_ID = 101 ;
     LocationController locationController;
-    double speedLimit= 1000.0;
+    double speedLimit = 1000.0;
     double longitude,latitude;
     double endingLongitude,endingLatitude;
     private boolean sentViolationOneTime;
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private boolean acsLong,acsLat;
     private TextView txt;
     private ScrollView scrollView;
-
+    private String serverBaseURL = "https://evilcar.herokuapp.com";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -106,13 +106,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     public void onLocationChanged(Location location) {
+        Toast.makeText(this, "speed limit"+ speedLimit, Toast.LENGTH_LONG).show();
         locationController = new LocationController(location);
         double currentSpeed = locationController.getSpeed();
         System.out.println("Current speed: "+currentSpeed);
         txt.append("Current speed: "+currentSpeed+"\n");
         latitude = locationController.getLatitude();
         longitude = locationController.getLongitude();
-
         System.out.println("current speed "+currentSpeed);
         if (currentSpeed > speedLimit && !sentViolationOneTime){
             sendViolationData();
@@ -123,6 +123,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             acsLong = longitude < endingLongitude;
             acsLat = latitude < endingLatitude;
         }
+
+//        sentViolationOneTime = speedLimit > currentSpeed;
+
         if(hasExceeded(latitude,longitude,endingLatitude,endingLongitude)){
             sentViolationOneTime = false;
             fetchSpeedData();
@@ -145,8 +148,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 +"ending longitude"+endingLongitude+"\n"
                 +"ending latitude" + endingLatitude+ "\n"
                    +"latitude"+latitude+"\n");
-        return (acsLong == longitude > endingLongitude) || (acsLat == latitude > endingLatitude);
+        //TODO: fix that!!!!!!!!!!!!!!!!!
+//        return (acsLong == longitude > endingLongitude) || (acsLat == latitude > endingLatitude);
+    return  false;
     }
+
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
@@ -163,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     }
     private void fetchSpeedData(){
-        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.20:5000");
+        Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
         ISpeedAPI speedAPI = retrofit.create(ISpeedAPI.class);
         Call call = speedAPI.getSpeed(longitude,latitude);
         call.enqueue(new Callback() {
@@ -197,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         jsonParams.put("speed",locationController.getSpeed());
 
         RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
-        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.20:5000");
+        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.28:5000");
         ISpeedAPI speedAPI = retrofit.create(ISpeedAPI.class);
         Call<ResponseBody> call = speedAPI.sendViolation(body);
         call.enqueue(new Callback<ResponseBody>() {
@@ -220,7 +226,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     @Override
     public void onSensorChanged(SensorEvent event) {
         accelerationValues = event.values;
-        txt.append("Acceleration in x: "+accelerationValues[0]+"\n"
+        System.out.println("Acceleration in x: "+accelerationValues[0]+"\n"
                   +"Acceleration in y: "+accelerationValues[1]+"\n"
                   +"Acceleration in z: "+accelerationValues[2]+"\n");
 
