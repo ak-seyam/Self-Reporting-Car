@@ -7,6 +7,10 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -40,14 +44,16 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 
-public class MainActivity extends AppCompatActivity implements LocationListener {
+public class MainActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
     private static final int CAR_ID = 101 ;
     LocationController locationController;
     double speedLimit= 1000.0;
     double longitude,latitude;
     double endingLongitude,endingLatitude;
     private boolean sentViolationOneTime;
-
+    private SensorManager accelerationSensorManager;
+    private Sensor accelerationSensor;
+    private float[] accelerationValues;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,6 +68,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             initLocation();
         }
         fetchSpeedData();
+
+        accelerationSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+        accelerationSensor = accelerationSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        accelerationSensorManager.registerListener(this, accelerationSensor, accelerationSensorManager.SENSOR_DELAY_NORMAL);
+
     }
 
     @SuppressLint("MissingPermission")
@@ -180,5 +191,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 t.printStackTrace();
             }
         });
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        accelerationValues = event.values;
+        System.out.println("Acceleration in x: "+accelerationValues[0]);
+        System.out.println("Acceleration in y: "+accelerationValues[1]);
+        System.out.println("Acceleration in z: "+accelerationValues[2]);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
     }
 }
