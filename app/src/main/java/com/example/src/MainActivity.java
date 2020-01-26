@@ -18,6 +18,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.ArrayMap;
 import android.util.Log;
+import android.view.View;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.src.controller.ISpeedAPI;
@@ -55,11 +58,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private Sensor accelerationSensor;
     private float[] accelerationValues;
     private boolean acsLong,acsLat;
+    private TextView txt;
+    private ScrollView scrollView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        txt = findViewById(R.id.log);
+        scrollView = findViewById(R.id.sv);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                         != PackageManager.PERMISSION_GRANTED) {
@@ -101,6 +108,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     public void onLocationChanged(Location location) {
         locationController = new LocationController(location);
         double currentSpeed = locationController.getSpeed();
+        System.out.println("Current speed: "+currentSpeed);
+        txt.append("Current speed: "+currentSpeed+"\n");
         latitude = locationController.getLatitude();
         longitude = locationController.getLongitude();
 
@@ -109,7 +118,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             sendViolationData();
             Toast.makeText(this, "Fire a violation", Toast.LENGTH_SHORT).show();
             sentViolationOneTime = true;
-            System.out.println("NOTE: we did it once, don't send two exact same violations");
+            txt.append("NOTE: we did it once, don't send two exact same violations"+"\n");
             fetchSpeedData();
             acsLong = longitude < endingLongitude;
             acsLat = latitude < endingLatitude;
@@ -118,12 +127,24 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             sentViolationOneTime = false;
             fetchSpeedData();
         }
+        scrollView.post(new Runnable() {
+            @Override
+            public void run() {
+                scrollView.fullScroll(View.FOCUS_DOWN);
+            }
+        });
     }
 
     private boolean hasExceeded(double latitude,
                                 double longitude,
                                 double endingLatitude,
                                 double endingLongitude) {
+        txt.append("acslong:"+acsLong+"\n"
+                   +"acsLat" +acsLat+"\n"
+                   +"longitude"+longitude+"\n"
+                +"ending longitude"+endingLongitude+"\n"
+                +"ending latitude" + endingLatitude+ "\n"
+                   +"latitude"+latitude+"\n");
         return (acsLong == longitude > endingLongitude) || (acsLat == latitude > endingLatitude);
     }
 
@@ -141,9 +162,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     public void onProviderDisabled(String provider) {
 
     }
-
     private void fetchSpeedData(){
-        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.7:5000");
+        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.20:5000");
         ISpeedAPI speedAPI = retrofit.create(ISpeedAPI.class);
         Call call = speedAPI.getSpeed(longitude,latitude);
         call.enqueue(new Callback() {
@@ -153,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 speedLimit = speedPojo.getSpeed();
                 endingLatitude = speedPojo.getEndingLat();
                 endingLongitude = speedPojo.getEndingLong();
-                System.out.println("sl: "+speedLimit+" lon:"+endingLongitude+" lat: "+endingLatitude);
+                txt.append("sl: "+speedLimit+" lon:"+endingLongitude+" lat: "+endingLatitude+"\n");
             }
 
             @Override
@@ -177,7 +197,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         jsonParams.put("speed",locationController.getSpeed());
 
         RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
-        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.7:5000");
+        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.20:5000");
         ISpeedAPI speedAPI = retrofit.create(ISpeedAPI.class);
         Call<ResponseBody> call = speedAPI.sendViolation(body);
         call.enqueue(new Callback<ResponseBody>() {
@@ -200,9 +220,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     @Override
     public void onSensorChanged(SensorEvent event) {
         accelerationValues = event.values;
-        System.out.println("Acceleration in x: "+accelerationValues[0]);
-        System.out.println("Acceleration in y: "+accelerationValues[1]);
-        System.out.println("Acceleration in z: "+accelerationValues[2]);
+        txt.append("Acceleration in x: "+accelerationValues[0]+"\n"
+                  +"Acceleration in y: "+accelerationValues[1]+"\n"
+                  +"Acceleration in z: "+accelerationValues[2]+"\n");
+
+        scrollView.post(new Runnable() {
+            @Override
+            public void run() {
+                scrollView.fullScroll(View.FOCUS_DOWN);
+            }
+        });
     }
 
     @Override
