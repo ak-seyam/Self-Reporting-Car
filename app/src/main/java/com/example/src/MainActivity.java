@@ -45,7 +45,7 @@ import retrofit2.Retrofit;
 
 public class MainActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
     private static int CAR_ID = 101 ;
-    private static double ACCELERATION_THRESHOULD = 15.0;
+    private static double ACCELERATION_THRESHOLD = 0.05*9.8;
     LocationController locationController;
     double speedLimit = 1000.0;
     double longitude,latitude;
@@ -59,9 +59,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private boolean acsLong,acsLat;
     private TextView txt;
     private ScrollView scrollView;
-    private String serverBaseURL = "https://evilcar.herokuapp.com";
+    private String serverBaseURL = "http://192.168.43.16:5000";
     private int accelrationCount = 0;
-    private static final int ACCELERATION_COUNT_THREASHOLD = 20;
+    private static final int ACCELERATION_COUNT_THREASHOLD = 3;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,10 +77,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             initLocation();
         }
         fetchSpeedData();
-
         sensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
         accelerationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         sensorManager.registerListener(this, accelerationSensor, sensorManager.SENSOR_DELAY_NORMAL);
+    sendViolationData_Delete_this_();
     }
 
     @SuppressLint("MissingPermission")
@@ -200,7 +200,41 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         jsonParams.put("speed",locationController.getSpeed());
         System.out.println("send violation data");
         RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
-        Retrofit retrofit = NetworkClient.getRetrofitClient("http://192.168.1.28:5000");
+        Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
+        EvilCarAPI speedAPI = retrofit.create(EvilCarAPI.class);
+        Call<ResponseBody> call = speedAPI.sendViolation(body);
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> rawResponse) {
+                try {
+                    Log.d("MainActivity", "RetroFit2.0 :RetroGetLogin: " + rawResponse.body().string());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                t.printStackTrace();
+            }
+        });
+    }
+
+    private void sendViolationData_Delete_this_(){
+
+        Map<String, Object> jsonParams = new HashMap<>();
+        //put something inside the map, could be null
+        DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+        Date date = new Date();
+        String time = dateFormat.format(date);
+        jsonParams.put("id",CAR_ID);
+        jsonParams.put("time",time);
+        jsonParams.put("longitude",111);
+        jsonParams.put("latitude",111);
+        jsonParams.put("speed",321);
+        System.out.println("send violation data");
+        RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
+        Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
         EvilCarAPI speedAPI = retrofit.create(EvilCarAPI.class);
         Call<ResponseBody> call = speedAPI.sendViolation(body);
         call.enqueue(new Callback<ResponseBody>() {
@@ -237,7 +271,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 txt.append("Acceleration in x: "+accelerationValues[0]+"\n"
                         +"Acceleration in y: "+accelerationValues[1]+"\n"
                         +"Acceleration in z: "+accelerationValues[2]+"\n");
-                if (Math.abs(accelerationValues[2]) > ACCELERATION_THRESHOULD){
+                if (accelerationValues[2] > 9.8+ ACCELERATION_THRESHOLD ||
+                        accelerationValues[2] < 9.8 - ACCELERATION_THRESHOLD){
                     System.out.println("i'm here :D");
                     sendObstacle();
                 }
