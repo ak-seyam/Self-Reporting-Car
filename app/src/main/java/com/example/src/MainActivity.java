@@ -20,7 +20,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.src.controller.EvilCarAPI;
 import com.example.src.controller.LocationController;
@@ -47,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private static int CAR_ID = 101 ;
     private static double ACCELERATION_THRESHOLD = 0.05*9.8;
     LocationController locationController;
-    double speedLimit = 1000.0;
+    private Double speedLimit;
     double longitude,latitude;
     double endingLongitude,endingLatitude;
     private boolean sentViolationOneTime = false;
@@ -59,15 +58,21 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private boolean acsLong,acsLat;
     private TextView txt;
     private ScrollView scrollView;
-    private String serverBaseURL = "http://192.168.43.16:5000";
-    private int accelrationCount = 0;
-    private static final int ACCELERATION_COUNT_THREASHOLD = 3;
+    private String serverBaseURL = "http://192.168.1.8:5000";
+    private int accelerationCount = 0;
+    private static final int ACCELERATION_COUNT_THRESHOLD = 3;
+    private TextView speedLimitTextView;
+    private TextView violationPostedTextView;
+    private Boolean insideViolationFunction;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txt = findViewById(R.id.log);
         scrollView = findViewById(R.id.sv);
+        speedLimitTextView = findViewById(R.id.sl);
+        violationPostedTextView = findViewById(R.id.dpost);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                         != PackageManager.PERMISSION_GRANTED) {
@@ -80,7 +85,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         sensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
         accelerationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         sensorManager.registerListener(this, accelerationSensor, sensorManager.SENSOR_DELAY_NORMAL);
-    sendViolationData_Delete_this_();
+//    sendViolationData_Delete_this_();
     }
 
     @SuppressLint("MissingPermission")
@@ -106,17 +111,13 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     public void onLocationChanged(Location location) {
-        Toast.makeText(this, "speed limit"+ speedLimit, Toast.LENGTH_LONG).show();
         locationController = new LocationController(location);
         double currentSpeed = locationController.getSpeed();
-        System.out.println("Current speed: "+currentSpeed);
         txt.append("Current speed: "+currentSpeed+"\n");
         latitude = locationController.getLatitude();
         longitude = locationController.getLongitude();
-        System.out.println("current speed "+currentSpeed);
         if (currentSpeed > speedLimit && !sentViolationOneTime){
             sendViolationData();
-            System.out.println("Send a violation");
             sentViolationOneTime = true;
 //            txt.append("NOTE: we did it once, don't send two exact same violations"+"\n");
         }
@@ -166,6 +167,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     }
     private void fetchSpeedData(){
+        System.out.println("inside fetch speed data");
         Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
         EvilCarAPI speedAPI = retrofit.create(EvilCarAPI.class);
         Call call = speedAPI.getSpeed(longitude,latitude);
@@ -177,6 +179,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 endingLatitude = speedPojo.getEndingLat();
                 endingLongitude = speedPojo.getEndingLong();
                 txt.append("sl: "+speedLimit+" lon:"+endingLongitude+" lat: "+endingLatitude+"\n");
+                speedLimitTextView.setText(speedLimit.toString());
             }
 
             @Override
@@ -198,11 +201,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         jsonParams.put("longitude",locationController.getLongitude());
         jsonParams.put("latitude",locationController.getLatitude());
         jsonParams.put("speed",locationController.getSpeed());
-        System.out.println("send violation data");
         RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
         Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
         EvilCarAPI speedAPI = retrofit.create(EvilCarAPI.class);
         Call<ResponseBody> call = speedAPI.sendViolation(body);
+        insideViolationFunction = true;
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> rawResponse) {
@@ -217,9 +220,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 t.printStackTrace();
             }
-        });
+        }
+        );
+        violationPostedTextView.setText(insideViolationFunction?"true":"false");
     }
-
+/*
     private void sendViolationData_Delete_this_(){
 
         Map<String, Object> jsonParams = new HashMap<>();
@@ -232,7 +237,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         jsonParams.put("longitude",111);
         jsonParams.put("latitude",111);
         jsonParams.put("speed",321);
-        System.out.println("send violation data");
         RequestBody body = RequestBody.create(okhttp3.MediaType.parse("application/json; charset=utf-8"),(new JSONObject(jsonParams)).toString());
         Retrofit retrofit = NetworkClient.getRetrofitClient(serverBaseURL);
         EvilCarAPI speedAPI = retrofit.create(EvilCarAPI.class);
@@ -253,27 +257,23 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             }
         });
     }
-
+*/
     @Override
     public void onSensorChanged(SensorEvent event) {
-        accelrationCount++;
-        System.out.println("Acceleration count" + accelrationCount);
-        if(accelrationCount > ACCELERATION_COUNT_THREASHOLD){
-            accelrationCount = 0 ;
+        accelerationCount++;
+        if(accelerationCount > ACCELERATION_COUNT_THRESHOLD){
+            accelerationCount = 0 ;
             if(event.sensor.getType() == Sensor.TYPE_GRAVITY){
                 gravityValues = event.values;
-                System.out.println("Gravity in x: "+gravityValues[0]+"\n"
-                        +"Gravity in y: "+gravityValues[1]+"\n"
-                        +"Gravity in z: "+gravityValues[2]+"\n");
+
             }
             if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
                 accelerationValues = event.values;
-                txt.append("Acceleration in x: "+accelerationValues[0]+"\n"
-                        +"Acceleration in y: "+accelerationValues[1]+"\n"
-                        +"Acceleration in z: "+accelerationValues[2]+"\n");
+//                txt.append("Acceleration in x: "+accelerationValues[0]+"\n"
+//                        +"Acceleration in y: "+accelerationValues[1]+"\n"
+//                        +"Acceleration in z: "+accelerationValues[2]+"\n");
                 if (accelerationValues[2] > 9.8+ ACCELERATION_THRESHOLD ||
                         accelerationValues[2] < 9.8 - ACCELERATION_THRESHOLD){
-                    System.out.println("i'm here :D");
                     sendObstacle();
                 }
             }
